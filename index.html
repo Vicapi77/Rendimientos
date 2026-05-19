@@ -476,27 +476,65 @@ document.getElementById('xlsxUpload').addEventListener('change', function(e){
       // Find CARGAS sheet (may have trailing space)
       const sheetName = wb.SheetNames.find(s => s.trim().toUpperCase() === 'CARGAS') || wb.SheetNames[0];
       const ws = wb.Sheets[sheetName];
-      const raw = XLSX.utils.sheet_to_json(ws, { raw: false, dateNF: 'YYYY-MM-DD' });
+      // Use raw:true to get actual numeric values from formula cells
+      const raw = XLSX.utils.sheet_to_json(ws, { raw: true, defval: null });
 
-      const rows = raw.map(r => ({
-        un:          (r['UN'] || '').trim(),
-        fecha:       (r['FECHA'] || '').toString().substring(0,10),
-        id:          r['ID'] || '',
-        planta:      (r['PLANTA'] || '').trim(),
-        nomina:      r['NOMINA'] || '',
-        operador:    (r['OPERADOR'] || '').trim(),
-        gerente:     (r['GERENTE'] || '').trim(),
-        jefe:        (r['JEFE TRANSPORTACION'] || '').trim(),
-        km:          parseFloat(r['KM']) || 0,
-        lts:         parseFloat(r['LTS']) || 0,
-        rtoObtenido: parseFloat(r['RTO OBTENIDO']) || 0,
-        rtoPpto:     parseFloat(r['RTO PPTO']) || 0,
-        dif:         parseFloat(r['DIF']) || 0,
-        eficiente:   (r['EFICIENTE O NO'] || '').trim(),
-        impacto:     parseFloat(r['IMPACTO$ PRECIO ESTACION']) || 0,
-        tipoVehiculo:(r['TIPO VEHICULO '] || r['TIPO VEHICULO'] || '').trim(),
-        tipoCombustible: (r['TIPO COMBUSTIBLE'] || '').trim(),
-      })).filter(r => r.operador && r.operador !== 'SIN ASIGNACION' && r.rtoObtenido > 0);
+      // Helper: get value regardless of key casing/spacing
+      const g = (r, ...keys) => {
+        for(const k of keys){
+          if(r[k] !== undefined && r[k] !== null) return r[k];
+          // fuzzy match - strip spaces
+          const found = Object.keys(r).find(rk => rk.trim().toUpperCase() === k.trim().toUpperCase());
+          if(found && r[found] !== null && r[found] !== undefined) return r[found];
+        }
+        return null;
+      };
+
+      // Parse Excel serial date to YYYY-MM-DD
+      const excelDate = v => {
+        if(!v) return '';
+        if(typeof v === 'string' && v.match(/^\d{4}-\d{2}-\d{2}/)) return v.substring(0,10);
+        if(v instanceof Date) return v.toISOString().substring(0,10);
+        if(typeof v === 'number'){
+          const d = new Date(Math.round((v - 25569) * 86400 * 1000));
+          return d.toISOString().substring(0,10);
+        }
+        return String(v).substring(0,10);
+      };
+
+      const rows = raw.map(r => {
+        const km  = parseFloat(g(r,'KM')) || 0;
+        const lts = parseFloat(g(r,'LTS')) || 0;
+        // RTO OBTENIDO may be a formula — recalculate from KM/LTS if zero
+        let rtoOb = parseFloat(g(r,'RTO OBTENIDO')) || 0;
+        if(!rtoOb && km > 0 && lts > 0) rtoOb = km / lts;
+        let rtoPp = parseFloat(g(r,'RTO PPTO')) || 0;
+        const dif = rtoOb - rtoPp;
+        // EFICIENTE may also be formula — recalculate
+        let ef = (g(r,'EFICIENTE O NO') || '').trim();
+        if(!ef) ef = dif >= 0 ? 'Eficiente' : 'Ineficiente';
+
+        return {
+          un:          String(g(r,'UN') || '').trim(),
+          fecha:       excelDate(g(r,'FECHA')),
+          id:          g(r,'ID') || '',
+          planta:      String(g(r,'PLANTA') || '').trim(),
+          nomina:      String(g(r,'NOMINA') || '').trim(),
+          operador:    String(g(r,'OPERADOR') || '').trim(),
+          gerente:     String(g(r,'GERENTE') || '').trim(),
+          jefe:        String(g(r,'JEFE TRANSPORTACION') || '').trim(),
+          km, lts,
+          rtoObtenido: rtoOb,
+          rtoPpto:     rtoPp,
+          dif,
+          eficiente:   ef,
+          impacto:     parseFloat(g(r,'IMPACTO$ PRECIO ESTACION')) || 0,
+          tipoVehiculo:String(g(r,'TIPO VEHICULO ') || g(r,'TIPO VEHICULO') || '').trim(),
+          tipoCombustible: String(g(r,'TIPO COMBUSTIBLE') || '').trim(),
+        };
+      }).filter(r => r.operador && r.operador !== 'SIN ASIGNACION' && r.km > 0 && r.lts > 0);
+
+      console.log('Parsed rows:', rows.length, 'sample:', rows[0]);
 
       // Deduplicate on load
       const existing = new Set(allData.map(r=>`${r.nomina}_${r.fecha}_${r.planta}_${r.km}`));
