@@ -270,7 +270,6 @@ body {
   <label>Excel Eficiencias:</label>
   <input type="file" id="xlsxUpload" accept=".xlsx,.xls">
   <span class="file-count" id="fileCountLabel"></span>
-  <button class="btn danger" onclick="clearData()">Limpiar datos</button>
   <div class="sep"></div>
   <span id="fbStatus">🔥 Firebase: conectando…</span>
 </div>
@@ -551,14 +550,6 @@ document.getElementById('xlsxUpload').addEventListener('change', function(e){
   reader.readAsArrayBuffer(file);
   this.value = '';
 });
-
-function clearData(){
-  allData = [];
-  document.getElementById('fileCountLabel').textContent = '';
-  populateFilters();
-  applyFilters();
-  if(window.__clearFirestore) window.__clearFirestore();
-}
 
 // ── Filters ──
 function populateFilters(){
