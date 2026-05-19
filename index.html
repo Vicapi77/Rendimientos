@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Rendimientos – LIPU</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@400;500;600&display=swap');
+
+:root {
+  --bg:        #0b1a0f;
+  --bg2:       #0f2214;
+  --bg3:       #142a18;
+  --border:    #1e4a28;
+  --border2:   #2a6438;
+  --green:     #2ecc71;
+  --green2:    #27ae60;
+  --green3:    #5de89a;
+  --red:       #e74c3c;
+  --red2:      #c0392b;
+  --orange:    #f39c12;
+  --orange2:   #e67e22;
+  --blue:      #3498db;
+  --text:      #e8f5ec;
+  --text2:     #a8c8b0;
+  --text3:     #6a9a78;
+  --font-head: 'Barlow Condensed', sans-serif;
+  --font-body: 'Barlow', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 14px;
+  min-height: 100vh;
+}
+
+/* ── Header ── */
+.header {
+  background: var(--bg2);
+  border-bottom: 2px solid var(--border2);
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.header-title {
+  font-family: var(--font-head);
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: var(--green3);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.header-sub {
+  font-size: 0.72rem;
+  color: var(--text3);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ── Upload bar ── */
+.upload-bar {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.upload-bar label { font-size: 0.72rem; font-weight: 700; color: var(--text2); text-transform: uppercase; }
+.upload-bar input[type=file] {
+  font-size: 0.72rem; color: var(--text2);
+  background: var(--bg3); border: 1px solid var(--border2);
+  border-radius: 6px; padding: 4px 8px; cursor: pointer;
+}
+.btn {
+  font-family: var(--font-body); font-size: 0.72rem; font-weight: 600;
+  padding: 5px 12px; border-radius: 6px; border: 1px solid var(--border2);
+  background: var(--bg3); color: var(--green3); cursor: pointer;
+  transition: all 0.15s;
+}
+.btn:hover { background: var(--border); }
+.btn.danger { color: var(--red); border-color: #4a1a1a; background: #1a0a0a; }
+.file-count { font-size: 0.7rem; color: var(--green3); font-weight: 600; }
+.sep { width: 1px; height: 24px; background: var(--border2); }
+#fbStatus { font-size: 0.7rem; font-weight: 700; color: var(--text2); margin-left: auto; }
+
+/* ── Filters ── */
+.filters {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 20px;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.filters select, .filters input[type=date] {
+  font-family: var(--font-body); font-size: 0.75rem;
+  background: var(--bg3); border: 1px solid var(--border2);
+  color: var(--text); border-radius: 6px; padding: 5px 8px;
+}
+.filter-label { font-size: 0.7rem; font-weight: 700; color: var(--text3); text-transform: uppercase; }
+.filter-info { font-size: 0.7rem; color: var(--text3); margin-left: auto; }
+
+/* ── KPI row ── */
+.kpi-row {
+  display: flex; gap: 10px; padding: 14px 20px; flex-wrap: wrap;
+}
+.kpi {
+  flex: 1; min-width: 130px;
+  background: var(--bg2); border: 1px solid var(--border2);
+  border-radius: 10px; padding: 12px 16px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.kpi-val {
+  font-family: var(--font-head); font-size: 2rem; font-weight: 900;
+  color: var(--green3); line-height: 1;
+}
+.kpi-lbl { font-size: 0.65rem; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; }
+.kpi.bad .kpi-val { color: var(--red); }
+.kpi.warn .kpi-val { color: var(--orange); }
+
+/* ── Main layout ── */
+.main { display: flex; gap: 0; }
+
+/* ── Left panel: operadores ── */
+.panel-left {
+  width: 380px; min-width: 320px;
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+}
+.panel-title {
+  font-family: var(--font-head); font-size: 0.85rem; font-weight: 700;
+  color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px;
+  padding: 10px 16px; background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+}
+.tab-group { display: flex; gap: 6px; }
+.tab {
+  font-size: 0.65rem; font-weight: 700; padding: 3px 10px;
+  border-radius: 20px; border: 1px solid var(--border2);
+  background: transparent; color: var(--text3); cursor: pointer;
+  text-transform: uppercase; letter-spacing: 0.4px; transition: all 0.15s;
+}
+.tab.active { background: var(--green2); color: #fff; border-color: var(--green2); }
+.op-list { overflow-y: auto; flex: 1; max-height: calc(100vh - 280px); }
+
+.op-card {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px; border-bottom: 1px solid var(--border);
+  cursor: pointer; transition: background 0.12s;
+}
+.op-card:hover { background: var(--bg3); }
+.op-card.active { background: #1a3a22; border-left: 3px solid var(--green3); }
+.op-rank {
+  font-family: var(--font-head); font-size: 1.1rem; font-weight: 900;
+  color: var(--text3); width: 28px; text-align: center;
+}
+.op-info { flex: 1; min-width: 0; }
+.op-name { font-size: 0.75rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.op-sub { font-size: 0.65rem; color: var(--text3); margin-top: 2px; }
+.op-rto {
+  font-family: var(--font-head); font-size: 1.3rem; font-weight: 900;
+  text-align: right; min-width: 60px;
+}
+.op-badge {
+  font-size: 0.6rem; font-weight: 700; padding: 2px 7px;
+  border-radius: 10px; text-transform: uppercase;
+}
+.badge-ef { background: rgba(46,204,113,0.15); color: var(--green3); border: 1px solid rgba(46,204,113,0.3); }
+.badge-inef { background: rgba(231,76,60,0.15); color: var(--red); border: 1px solid rgba(231,76,60,0.3); }
+.badge-warn { background: rgba(243,156,18,0.15); color: var(--orange); border: 1px solid rgba(243,156,18,0.3); }
+
+/* ── Right panel ── */
+.panel-right {
+  flex: 1; display: flex; flex-direction: column; gap: 0; overflow: hidden;
+}
+
+/* ── Charts row ── */
+.charts-row {
+  display: flex; gap: 12px; padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.chart-box {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px; flex: 1; position: relative;
+}
+.chart-box-tall { height: 240px; }
+.chart-title {
+  font-family: var(--font-head); font-size: 0.75rem; font-weight: 700;
+  color: var(--text2); text-transform: uppercase; letter-spacing: 0.4px;
+  margin-bottom: 10px;
+}
+
+/* ── Modal operador ── */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.75); z-index: 100;
+  align-items: center; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--bg2); border: 1px solid var(--border2);
+  border-radius: 14px; width: 760px; max-width: 95vw;
+  max-height: 90vh; overflow-y: auto; padding: 24px;
+  position: relative;
+}
+.modal-close {
+  position: absolute; top: 14px; right: 14px;
+  background: var(--bg3); border: 1px solid var(--border2);
+  color: var(--text2); border-radius: 50%; width: 28px; height: 28px;
+  cursor: pointer; font-size: 1rem; display: flex; align-items: center; justify-content: center;
+}
+.modal-header { margin-bottom: 16px; }
+.modal-name {
+  font-family: var(--font-head); font-size: 1.6rem; font-weight: 900;
+  color: var(--green3); text-transform: uppercase;
+}
+.modal-meta { font-size: 0.72rem; color: var(--text3); margin-top: 4px; }
+.modal-kpis { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+.modal-kpi {
+  flex: 1; min-width: 100px;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 14px;
+}
+.modal-kpi-val { font-family: var(--font-head); font-size: 1.5rem; font-weight: 900; color: var(--green3); }
+.modal-kpi-lbl { font-size: 0.62rem; color: var(--text3); text-transform: uppercase; font-weight: 700; }
+.modal-chart-box {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px; height: 260px; margin-bottom: 14px;
+}
+.modal-section-lbl {
+  font-size: 0.7rem; font-weight: 700; color: var(--blue);
+  text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;
+}
+.detail-table {
+  width: 100%; border-collapse: collapse; font-size: 0.72rem;
+}
+.detail-table th {
+  background: var(--bg3); color: var(--text3); font-weight: 700;
+  text-transform: uppercase; font-size: 0.62rem; letter-spacing: 0.3px;
+  padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--border);
+}
+.detail-table td {
+  padding: 6px 10px; border-bottom: 1px solid #1a2e1f; color: var(--text2);
+}
+.detail-table tr:hover td { background: #1a3a22; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div>
+    <div class="header-title">⛽ Dashboard Rendimientos</div>
+    <div class="header-sub">LIPU · Eficiencias de Combustible</div>
+  </div>
+</div>
+
+<!-- Upload bar -->
+<div class="upload-bar">
+  <label>Excel Eficiencias:</label>
+  <input type="file" id="xlsxUpload" accept=".xlsx,.xls">
+  <span class="file-count" id="fileCountLabel"></span>
+  <button class="btn danger" onclick="clearData()">Limpiar datos</button>
+  <div class="sep"></div>
+  <span id="fbStatus">🔥 Firebase: conectando…</span>
+</div>
+
+<!-- Filters -->
+<div class="filters">
+  <span class="filter-label">Filtros:</span>
+  <select id="filterUN" onchange="applyFilters()"><option value="">Todas las UN</option></select>
+  <select id="filterPlanta" onchange="applyFilters()"><option value="">Todas las plantas</option></select>
+  <select id="filterGerente" onchange="applyFilters()"><option value="">Todos los gerentes</option></select>
+  <select id="filterEf" onchange="applyFilters()">
+    <option value="">Todos</option>
+    <option value="Eficiente">Eficientes</option>
+    <option value="Ineficiente">Ineficientes</option>
+  </select>
+  <input type="date" id="filterDateFrom" onchange="applyFilters()" title="Desde">
+  <input type="date" id="filterDateTo" onchange="applyFilters()" title="Hasta">
+  <button class="btn" onclick="clearFilters()">Limpiar filtros</button>
+  <span class="filter-info" id="filterInfo"></span>
+</div>
+
+<!-- KPIs -->
+<div class="kpi-row" id="kpiRow">
+  <div class="kpi"><div class="kpi-val">—</div><div class="kpi-lbl">Cargas analizadas</div></div>
+  <div class="kpi"><div class="kpi-val">—</div><div class="kpi-lbl">Operadores</div></div>
+  <div class="kpi"><div class="kpi-val">—</div><div class="kpi-lbl">RTO promedio</div></div>
+  <div class="kpi bad"><div class="kpi-val">—</div><div class="kpi-lbl">Ineficientes</div></div>
+  <div class="kpi warn"><div class="kpi-val">—</div><div class="kpi-lbl">% Ineficiencia</div></div>
+  <div class="kpi"><div class="kpi-val">—</div><div class="kpi-lbl">Total KM</div></div>
+</div>
+
+<!-- Main layout -->
+<div class="main">
+
+  <!-- Left: operador list -->
+  <div class="panel-left">
+    <div class="panel-title">
+      <span id="panelTitleText">⭐ Top · Peor rendimiento</span>
+      <div class="tab-group" style="margin-left:auto">
+        <button class="tab active" id="tabPeorRto" onclick="setMode('peorRto')">Peor RTO</button>
+        <button class="tab" id="tabMasInef" onclick="setMode('masInef')">Más ineficientes</button>
+      </div>
+    </div>
+    <div class="op-list" id="opList"></div>
+  </div>
+
+  <!-- Right: charts -->
+  <div class="panel-right">
+    <div class="charts-row">
+      <div class="chart-box chart-box-tall" style="flex:2">
+        <div class="chart-title">📊 Plantas — operadores ineficientes</div>
+        <canvas id="chartPlantas"></canvas>
+      </div>
+      <div class="chart-box chart-box-tall" style="flex:1">
+        <div class="chart-title">🥧 Eficiencia global</div>
+        <canvas id="chartEf"></canvas>
+      </div>
+    </div>
+    <div class="charts-row" style="border-bottom:none">
+      <div class="chart-box chart-box-tall" style="flex:1">
+        <div class="chart-title">📈 RTO promedio por día</div>
+        <canvas id="chartRtoDay"></canvas>
+      </div>
+      <div class="chart-box chart-box-tall" style="flex:1">
+        <div class="chart-title">📉 Tipo de vehículo</div>
+        <canvas id="chartVehiculo"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal operador -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal" id="modal">
+    <button class="modal-close" onclick="closeModalDirect()">✕</button>
+    <div class="modal-header">
+      <div class="modal-name" id="modalName">—</div>
+      <div class="modal-meta" id="modalMeta">—</div>
+    </div>
+    <div class="modal-kpis" id="modalKpis"></div>
+    <div class="modal-section-lbl">📈 Tendencia de rendimiento (RTO obtenido vs presupuesto)</div>
+    <div class="modal-chart-box"><canvas id="modalChart"></canvas></div>
+    <div class="modal-section-lbl">📋 Detalle de cargas</div>
+    <div style="overflow-x:auto">
+      <table class="detail-table" id="detailTable">
+        <thead><tr>
+          <th>Fecha</th><th>Planta</th><th>KM</th><th>LTS</th>
+          <th>RTO Obtenido</th><th>RTO Ppto</th><th>DIF</th><th>Eficiencia</th>
+        </tr></thead>
+        <tbody id="detailBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+import { getFirestore, collection, getDocs, writeBatch, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAw4psAfQVZovmde0niqAerEfkzPKprnvE",
+  authDomain: "rendimientos-da021.firebaseapp.com",
+  projectId: "rendimientos-da021",
+  storageBucket: "rendimientos-da021.firebasestorage.app",
+  messagingSenderId: "181209253386",
+  appId: "1:181209253386:web:6e11908bf2f1124993c1f3"
+};
+
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+
+const setStatus = (msg, color='#a8c8b0') => {
+  const el = document.getElementById('fbStatus');
+  if(el){ el.textContent = msg; el.style.color = color; }
+};
+
+// ── Save rows to Firestore ──
+async function saveRendimientos(rows){
+  if(!rows.length) return;
+  setStatus('⏳ Guardando en Firebase…', '#f39c12');
+  try {
+    const colRef = collection(db, 'rendimientos');
+    const batchSize = 400;
+    for(let i = 0; i < rows.length; i += batchSize){
+      const batch = writeBatch(db);
+      rows.slice(i, i + batchSize).forEach(r => {
+        const id = `${r.nomina}_${r.fecha}_${r.planta}_${r.km}`.replace(/[^a-zA-Z0-9_-]/g,'_');
+        batch.set(doc(colRef, id), r);
+      });
+      await batch.commit();
+    }
+    setStatus(`✅ ${rows.length} cargas guardadas`, '#5de89a');
+  } catch(e){ setStatus('⚠️ Error: ' + e.message, '#e74c3c'); }
+}
+
+// ── Load from Firestore ──
+async function loadRendimientos(){
+  setStatus('🔥 Firebase: cargando…', '#f39c12');
+  try {
+    const snap = await getDocs(collection(db, 'rendimientos'));
+    const rows = [];
+    snap.forEach(d => rows.push(d.data()));
+    if(rows.length){
+      setStatus(`✅ ${rows.length} cargas cargadas`, '#5de89a');
+      window.__setData(rows);
+    } else {
+      setStatus('🔥 Sin datos — sube el Excel', '#a8c8b0');
+    }
+  } catch(e){ setStatus('⚠️ ' + e.message, '#e74c3c'); }
+}
+
+// ── Clear Firestore ──
+async function clearFirestore(){
+  setStatus('🗑️ Limpiando Firebase…', '#f39c12');
+  try {
+    const snap = await getDocs(collection(db, 'rendimientos'));
+    const batchSize = 400;
+    const docs = [];
+    snap.forEach(d => docs.push(d.ref));
+    for(let i = 0; i < docs.length; i += batchSize){
+      const batch = writeBatch(db);
+      docs.slice(i, i+batchSize).forEach(ref => batch.delete(ref));
+      await batch.commit();
+    }
+    setStatus('✅ Firebase limpio', '#5de89a');
+  } catch(e){ setStatus('⚠️ ' + e.message, '#e74c3c'); }
+}
+
+window.__saveToFirestore   = saveRendimientos;
+window.__clearFirestore    = clearFirestore;
+loadRendimientos();
+</script>
+
+<script>
+// ── State ──
+let allData = [];
+let mode = 'peorRto';
+let modalChart = null;
+let chartPlantas = null;
+let chartEf = null;
+let chartRtoDay = null;
+let chartVehiculo = null;
+
+window.__setData = function(rows){
+  // Merge avoiding duplicates by key
+  const existing = new Set(allData.map(r => `${r.nomina}_${r.fecha}_${r.planta}_${r.km}`));
+  const newRows = rows.filter(r => !existing.has(`${r.nomina}_${r.fecha}_${r.planta}_${r.km}`));
+  allData = [...allData, ...newRows];
+  populateFilters();
+  applyFilters();
+  document.getElementById('fileCountLabel').textContent = `${allData.length} registros`;
+};
+
+// ── Parse Excel ──
+document.getElementById('xlsxUpload').addEventListener('change', function(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const wb = XLSX.read(ev.target.result, { type: 'array', cellDates: true });
+      // Find CARGAS sheet (may have trailing space)
+      const sheetName = wb.SheetNames.find(s => s.trim().toUpperCase() === 'CARGAS') || wb.SheetNames[0];
+      const ws = wb.Sheets[sheetName];
+      const raw = XLSX.utils.sheet_to_json(ws, { raw: false, dateNF: 'YYYY-MM-DD' });
+
+      const rows = raw.map(r => ({
+        un:          (r['UN'] || '').trim(),
+        fecha:       (r['FECHA'] || '').toString().substring(0,10),
+        id:          r['ID'] || '',
+        planta:      (r['PLANTA'] || '').trim(),
+        nomina:      r['NOMINA'] || '',
+        operador:    (r['OPERADOR'] || '').trim(),
+        gerente:     (r['GERENTE'] || '').trim(),
+        jefe:        (r['JEFE TRANSPORTACION'] || '').trim(),
+        km:          parseFloat(r['KM']) || 0,
+        lts:         parseFloat(r['LTS']) || 0,
+        rtoObtenido: parseFloat(r['RTO OBTENIDO']) || 0,
+        rtoPpto:     parseFloat(r['RTO PPTO']) || 0,
+        dif:         parseFloat(r['DIF']) || 0,
+        eficiente:   (r['EFICIENTE O NO'] || '').trim(),
+        impacto:     parseFloat(r['IMPACTO$ PRECIO ESTACION']) || 0,
+        tipoVehiculo:(r['TIPO VEHICULO '] || r['TIPO VEHICULO'] || '').trim(),
+        tipoCombustible: (r['TIPO COMBUSTIBLE'] || '').trim(),
+      })).filter(r => r.operador && r.operador !== 'SIN ASIGNACION' && r.rtoObtenido > 0);
+
+      // Deduplicate on load
+      const existing = new Set(allData.map(r=>`${r.nomina}_${r.fecha}_${r.planta}_${r.km}`));
+      const newRows = rows.filter(r => !existing.has(`${r.nomina}_${r.fecha}_${r.planta}_${r.km}`));
+      allData = [...allData, ...newRows];
+      document.getElementById('fileCountLabel').textContent = `${allData.length} registros`;
+      populateFilters();
+      applyFilters();
+      if(window.__saveToFirestore) window.__saveToFirestore(newRows);
+    } catch(err){
+      alert('Error leyendo el archivo: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+  this.value = '';
+});
+
+function clearData(){
+  allData = [];
+  document.getElementById('fileCountLabel').textContent = '';
+  populateFilters();
+  applyFilters();
+  if(window.__clearFirestore) window.__clearFirestore();
+}
+
+// ── Filters ──
+function populateFilters(){
+  const fillSelect = (id, vals, placeholder) => {
+    const sel = document.getElementById(id);
+    const cur = sel.value;
+    sel.innerHTML = `<option value="">${placeholder}</option>` +
+      [...new Set(vals)].filter(Boolean).sort().map(v => `<option value="${v}">${v}</option>`).join('');
+    sel.value = cur;
+  };
+  fillSelect('filterUN',      allData.map(r=>r.un),      'Todas las UN');
+  fillSelect('filterPlanta',  allData.map(r=>r.planta),  'Todas las plantas');
+  fillSelect('filterGerente', allData.map(r=>r.gerente), 'Todos los gerentes');
+}
+
+function clearFilters(){
+  ['filterUN','filterPlanta','filterGerente','filterEf','filterDateFrom','filterDateTo'].forEach(id=>{
+    document.getElementById(id).value='';
+  });
+  applyFilters();
+}
+
+function getFiltered(){
+  const un     = document.getElementById('filterUN').value;
+  const planta = document.getElementById('filterPlanta').value;
+  const ger    = document.getElementById('filterGerente').value;
+  const ef     = document.getElementById('filterEf').value;
+  const from   = document.getElementById('filterDateFrom').value;
+  const to     = document.getElementById('filterDateTo').value;
+  return allData.filter(r =>
+    (!un     || r.un === un) &&
+    (!planta || r.planta === planta) &&
+    (!ger    || r.gerente === ger) &&
+    (!ef     || r.eficiente === ef) &&
+    (!from   || r.fecha >= from) &&
+    (!to     || r.fecha <= to)
+  );
+}
+
+// ── Mode ──
+function setMode(m){
+  mode = m;
+  document.getElementById('tabPeorRto').classList.toggle('active', m==='peorRto');
+  document.getElementById('tabMasInef').classList.toggle('active', m==='masInef');
+  document.getElementById('panelTitleText').textContent =
+    m==='peorRto' ? '⭐ Top · Peor rendimiento' : '🔴 Top · Más ineficientes';
+  applyFilters();
+}
+
+// ── RTO color ──
+function rtoColor(rto, ppto){
+  if(!ppto) return '#a8c8b0';
+  const pct = rto / ppto;
+  if(pct >= 1) return '#5de89a';
+  if(pct >= 0.9) return '#f39c12';
+  return '#e74c3c';
+}
+
+function rtoClass(rto, ppto){
+  if(!ppto) return '';
+  const pct = rto / ppto;
+  if(pct >= 1) return '';
+  if(pct >= 0.9) return 'warn';
+  return 'bad';
+}
+
+// ── Apply filters ──
+function applyFilters(){
+  const filtered = getFiltered();
+  updateKPIs(filtered);
+  updateOpList(filtered);
+  updateCharts(filtered);
+  document.getElementById('filterInfo').textContent =
+    `${filtered.length} registros · ${[...new Set(filtered.map(r=>r.operador))].length} operadores`;
+}
+
+// ── KPIs ──
+function updateKPIs(filtered){
+  const total = filtered.length;
+  const ops   = new Set(filtered.map(r=>r.operador)).size;
+  const rtoAvg = total ? (filtered.reduce((a,b)=>a+b.rtoObtenido,0)/total) : 0;
+  const inef  = filtered.filter(r=>r.eficiente==='Ineficiente').length;
+  const pctInef = total ? ((inef/total)*100).toFixed(1) : 0;
+  const km    = filtered.reduce((a,b)=>a+b.km,0);
+
+  document.getElementById('kpiRow').innerHTML = `
+    <div class="kpi"><div class="kpi-val">${total.toLocaleString()}</div><div class="kpi-lbl">Cargas analizadas</div></div>
+    <div class="kpi"><div class="kpi-val">${ops}</div><div class="kpi-lbl">Operadores</div></div>
+    <div class="kpi ${rtoClass(rtoAvg, rtoAvg > 0 ? 5 : 0)}"><div class="kpi-val" style="color:${rtoColor(rtoAvg,5)}">${rtoAvg.toFixed(2)}</div><div class="kpi-lbl">RTO promedio km/l</div></div>
+    <div class="kpi bad"><div class="kpi-val">${inef.toLocaleString()}</div><div class="kpi-lbl">Ineficientes</div></div>
+    <div class="kpi warn"><div class="kpi-val">${pctInef}%</div><div class="kpi-lbl">% Ineficiencia</div></div>
+    <div class="kpi"><div class="kpi-val">${(km/1000).toFixed(0)}K</div><div class="kpi-lbl">Total KM</div></div>
+  `;
+}
+
+// ── Op list ──
+function updateOpList(filtered){
+  const ops = {};
+  filtered.forEach(r => {
+    if(!ops[r.operador]) ops[r.operador] = { operador: r.operador, nomina: r.nomina, rtos: [], inef: 0, total: 0, ppto: [] };
+    ops[r.operador].rtos.push(r.rtoObtenido);
+    ops[r.operador].ppto.push(r.rtoPpto);
+    ops[r.operador].total++;
+    if(r.eficiente==='Ineficiente') ops[r.operador].inef++;
+  });
+
+  let sorted = Object.values(ops).filter(o => o.operador !== 'SIN ASIGNACION');
+
+  if(mode === 'peorRto'){
+    sorted = sorted.sort((a,b) => {
+      const aAvg = a.rtos.reduce((x,y)=>x+y,0)/a.rtos.length;
+      const bAvg = b.rtos.reduce((x,y)=>x+y,0)/b.rtos.length;
+      return aAvg - bAvg;
+    }).slice(0, 20);
+  } else {
+    sorted = sorted.sort((a,b) => b.inef - a.inef).slice(0, 20);
+  }
+
+  document.getElementById('opList').innerHTML = sorted.map((o, i) => {
+    const avgRto = o.rtos.reduce((a,b)=>a+b,0)/o.rtos.length;
+    const avgPpto = o.ppto.reduce((a,b)=>a+b,0)/o.ppto.length;
+    const pctInef = ((o.inef/o.total)*100).toFixed(0);
+    const color = rtoColor(avgRto, avgPpto);
+    const badgeClass = parseFloat(pctInef) > 50 ? 'badge-inef' : parseFloat(pctInef) > 20 ? 'badge-warn' : 'badge-ef';
+    return `
+    <div class="op-card" onclick="openModal('${o.operador.replace(/'/g,"\\'")}')">
+      <div class="op-rank">${i+1}</div>
+      <div class="op-info">
+        <div class="op-name">${o.operador}</div>
+        <div class="op-sub">Nóm: ${o.nomina} · ${o.total} cargas · <span class="op-badge ${badgeClass}">${pctInef}% inef</span></div>
+      </div>
+      <div class="op-rto" style="color:${color}">${avgRto.toFixed(2)}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── Charts ──
+function destroyChart(c){ if(c) c.destroy(); return null; }
+
+function updateCharts(filtered){
+  // Chart 1: Plantas ineficientes
+  const plantaInef = {};
+  filtered.filter(r=>r.eficiente==='Ineficiente').forEach(r=>{
+    plantaInef[r.planta] = (plantaInef[r.planta]||0)+1;
+  });
+  const plantaSorted = Object.entries(plantaInef).sort((a,b)=>b[1]-a[1]).slice(0,12);
+
+  chartPlantas = destroyChart(chartPlantas);
+  chartPlantas = new Chart(document.getElementById('chartPlantas'), {
+    type: 'bar',
+    data: {
+      labels: plantaSorted.map(([p])=>p),
+      datasets:[{ label:'Ineficientes', data: plantaSorted.map(([,v])=>v),
+        backgroundColor: 'rgba(231,76,60,0.7)', borderRadius:4 }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false, indexAxis:'y',
+      plugins:{ legend:{display:false}, tooltip:{ backgroundColor:'#0f2214', borderColor:'#1e4a28', borderWidth:1 } },
+      scales:{
+        x:{ ticks:{color:'#a8c8b0',font:{size:10}}, grid:{color:'rgba(46,204,113,0.08)'} },
+        y:{ ticks:{color:'#e8f5ec',font:{size:10}}, grid:{display:false} }
+      }
+    }
+  });
+
+  // Chart 2: Eficiencia donut
+  const ef   = filtered.filter(r=>r.eficiente==='Eficiente').length;
+  const inef = filtered.filter(r=>r.eficiente==='Ineficiente').length;
+  chartEf = destroyChart(chartEf);
+  chartEf = new Chart(document.getElementById('chartEf'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Eficiente','Ineficiente'],
+      datasets:[{ data:[ef,inef], backgroundColor:['rgba(46,204,113,0.8)','rgba(231,76,60,0.8)'],
+        borderColor:['#27ae60','#c0392b'], borderWidth:1 }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false, cutout:'65%',
+      plugins:{
+        legend:{ labels:{color:'#a8c8b0',font:{size:11}} },
+        tooltip:{ backgroundColor:'#0f2214', borderColor:'#1e4a28', borderWidth:1 }
+      }
+    }
+  });
+
+  // Chart 3: RTO por día
+  const byDay = {};
+  filtered.forEach(r=>{
+    if(!byDay[r.fecha]) byDay[r.fecha]={rtos:[],pptos:[]};
+    byDay[r.fecha].rtos.push(r.rtoObtenido);
+    byDay[r.fecha].pptos.push(r.rtoPpto);
+  });
+  const days = Object.keys(byDay).sort();
+  chartRtoDay = destroyChart(chartRtoDay);
+  chartRtoDay = new Chart(document.getElementById('chartRtoDay'), {
+    type:'line',
+    data:{
+      labels: days,
+      datasets:[
+        { label:'RTO Obtenido', data:days.map(d=>byDay[d].rtos.reduce((a,b)=>a+b,0)/byDay[d].rtos.length),
+          borderColor:'#5de89a', backgroundColor:'rgba(93,232,154,0.1)', tension:0.3, pointRadius:4 },
+        { label:'RTO Ppto', data:days.map(d=>byDay[d].pptos.reduce((a,b)=>a+b,0)/byDay[d].pptos.length),
+          borderColor:'#f39c12', borderDash:[5,3], borderWidth:1.5, pointRadius:0, tension:0.3 }
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{labels:{color:'#a8c8b0',font:{size:11}}},
+        tooltip:{ backgroundColor:'#0f2214', borderColor:'#1e4a28', borderWidth:1,
+          callbacks:{label: c => c.dataset.label+': '+c.raw.toFixed(2)+' km/l'} }
+      },
+      scales:{
+        x:{ticks:{color:'#a8c8b0',font:{size:10}}, grid:{color:'rgba(46,204,113,0.08)'}},
+        y:{ticks:{color:'#a8c8b0',font:{size:10},callback:v=>v.toFixed(1)}, grid:{color:'rgba(46,204,113,0.08)'},
+           title:{display:true,text:'km/l',color:'#6a9a78',font:{size:10}}}
+      }
+    }
+  });
+
+  // Chart 4: Tipo vehículo
+  const vehCount = {};
+  filtered.forEach(r=>{ vehCount[r.tipoVehiculo||'Sin dato']=(vehCount[r.tipoVehiculo||'Sin dato']||0)+1; });
+  const vehSorted = Object.entries(vehCount).sort((a,b)=>b[1]-a[1]);
+  chartVehiculo = destroyChart(chartVehiculo);
+  chartVehiculo = new Chart(document.getElementById('chartVehiculo'), {
+    type:'bar',
+    data:{
+      labels: vehSorted.map(([v])=>v),
+      datasets:[{ label:'Cargas', data:vehSorted.map(([,c])=>c),
+        backgroundColor:['rgba(52,152,219,0.7)','rgba(46,204,113,0.7)','rgba(243,156,18,0.7)','rgba(231,76,60,0.7)'],
+        borderRadius:4 }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}, tooltip:{ backgroundColor:'#0f2214', borderColor:'#1e4a28', borderWidth:1 }},
+      scales:{
+        x:{ticks:{color:'#e8f5ec',font:{size:10}}, grid:{display:false}},
+        y:{ticks:{color:'#a8c8b0',font:{size:10}}, grid:{color:'rgba(46,204,113,0.08)'}}
+      }
+    }
+  });
+}
+
+// ── Modal ──
+function openModal(operadorName){
+  const rows = getFiltered().filter(r => r.operador === operadorName).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  if(!rows.length) return;
+
+  document.getElementById('modalName').textContent = operadorName;
+  const r0 = rows[0];
+  document.getElementById('modalMeta').textContent =
+    `Nómina: ${r0.nomina} · Gerente: ${r0.gerente} · ${rows.length} cargas`;
+
+  const rtos    = rows.map(r=>r.rtoObtenido);
+  const avgRto  = rtos.reduce((a,b)=>a+b,0)/rtos.length;
+  const avgPpto = rows.reduce((a,b)=>a+b.rtoPpto,0)/rows.length;
+  const inef    = rows.filter(r=>r.eficiente==='Ineficiente').length;
+  const impacto = rows.reduce((a,b)=>a+b.impacto,0);
+  const km      = rows.reduce((a,b)=>a+b.km,0);
+
+  const col = rtoColor(avgRto, avgPpto);
+  document.getElementById('modalKpis').innerHTML = `
+    <div class="modal-kpi"><div class="modal-kpi-val" style="color:${col}">${avgRto.toFixed(2)}</div><div class="modal-kpi-lbl">RTO promedio km/l</div></div>
+    <div class="modal-kpi"><div class="modal-kpi-val" style="color:#f39c12">${avgPpto.toFixed(2)}</div><div class="modal-kpi-lbl">RTO presupuesto</div></div>
+    <div class="modal-kpi"><div class="modal-kpi-val" style="color:#e74c3c">${inef}</div><div class="modal-kpi-lbl">Cargas ineficientes</div></div>
+    <div class="modal-kpi"><div class="modal-kpi-val" style="color:${impacto>=0?'#5de89a':'#e74c3c'}">${impacto>=0?'+':''}${impacto.toFixed(0)}</div><div class="modal-kpi-lbl">Impacto $ (Est.)</div></div>
+    <div class="modal-kpi"><div class="modal-kpi-val">${(km/1000).toFixed(1)}K</div><div class="modal-kpi-lbl">KM totales</div></div>
+  `;
+
+  // Trend chart
+  if(modalChart){ modalChart.destroy(); modalChart=null; }
+  const dates = [...new Set(rows.map(r=>r.fecha))].sort();
+  const byDate = {};
+  rows.forEach(r=>{
+    if(!byDate[r.fecha]) byDate[r.fecha]={rtos:[],pptos:[]};
+    byDate[r.fecha].rtos.push(r.rtoObtenido);
+    byDate[r.fecha].pptos.push(r.rtoPpto);
+  });
+  modalChart = new Chart(document.getElementById('modalChart'), {
+    type:'bar',
+    data:{
+      labels: dates,
+      datasets:[
+        { type:'bar', label:'RTO Obtenido',
+          data: dates.map(d=>byDate[d].rtos.reduce((a,b)=>a+b,0)/byDate[d].rtos.length),
+          backgroundColor: dates.map(d=>{
+            const avg=byDate[d].rtos.reduce((a,b)=>a+b,0)/byDate[d].rtos.length;
+            const pp=byDate[d].pptos.reduce((a,b)=>a+b,0)/byDate[d].pptos.length;
+            return avg>=pp?'rgba(46,204,113,0.7)':'rgba(231,76,60,0.7)';
+          }), borderRadius:4, order:2 },
+        { type:'line', label:'RTO Ppto',
+          data: dates.map(d=>byDate[d].pptos.reduce((a,b)=>a+b,0)/byDate[d].pptos.length),
+          borderColor:'#f39c12', borderDash:[5,3], borderWidth:2,
+          pointRadius:0, tension:0.3, order:1 }
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{labels:{color:'#a8c8b0',font:{size:11}}},
+        tooltip:{ backgroundColor:'#0f2214', borderColor:'#1e4a28', borderWidth:1,
+          callbacks:{label:c=>c.dataset.label+': '+c.raw.toFixed(2)+' km/l'} }
+      },
+      scales:{
+        x:{ticks:{color:'#e8f5ec',font:{size:10}}, grid:{color:'rgba(46,204,113,0.08)'}},
+        y:{ticks:{color:'#a8c8b0',font:{size:10},callback:v=>v.toFixed(1)},
+           grid:{color:'rgba(46,204,113,0.08)'},
+           title:{display:true,text:'km/l',color:'#6a9a78',font:{size:10}}}
+      }
+    }
+  });
+
+  // Detail table
+  document.getElementById('detailBody').innerHTML = rows.map(r=>`
+    <tr>
+      <td>${r.fecha}</td>
+      <td>${r.planta}</td>
+      <td>${r.km.toFixed(1)}</td>
+      <td>${r.lts.toFixed(1)}</td>
+      <td style="color:${rtoColor(r.rtoObtenido,r.rtoPpto)};font-weight:700">${r.rtoObtenido.toFixed(2)}</td>
+      <td style="color:#f39c12">${r.rtoPpto.toFixed(2)}</td>
+      <td style="color:${r.dif>=0?'#5de89a':'#e74c3c'}">${r.dif>=0?'+':''}${r.dif.toFixed(2)}</td>
+      <td><span class="op-badge ${r.eficiente==='Eficiente'?'badge-ef':'badge-inef'}">${r.eficiente}</span></td>
+    </tr>`).join('');
+
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function closeModal(e){ if(e.target===document.getElementById('modalOverlay')) closeModalDirect(); }
+function closeModalDirect(){ document.getElementById('modalOverlay').classList.remove('open'); }
+
+// Init empty state
+applyFilters();
+</script>
+</body>
+</html>
