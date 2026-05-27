@@ -128,13 +128,14 @@ body {
 .kpi.warn .kpi-val { color: var(--orange); }
 
 /* ── Main layout ── */
-.main { display: flex; gap: 0; }
+.main { display: flex; gap: 0; height: calc(100vh - 185px); }
 
 /* ── Left panel: operadores ── */
 .panel-left {
   width: 380px; min-width: 320px;
   border-right: 1px solid var(--border);
   display: flex; flex-direction: column;
+  height: 100%;
 }
 .panel-title {
   font-family: var(--font-head); font-size: 0.85rem; font-weight: 700;
@@ -151,7 +152,7 @@ body {
   text-transform: uppercase; letter-spacing: 0.4px; transition: all 0.15s;
 }
 .tab.active { background: var(--green2); color: #fff; border-color: var(--green2); }
-.op-list { overflow-y: auto; flex: 1; max-height: calc(100vh - 280px); }
+.op-list { overflow-y: auto; flex: 1; overflow-x: hidden; }
 
 .op-card {
   display: flex; align-items: center; gap: 10px;
@@ -181,7 +182,7 @@ body {
 
 /* ── Right panel ── */
 .panel-right {
-  flex: 1; display: flex; flex-direction: column; gap: 0; overflow: hidden;
+  flex: 1; display: flex; flex-direction: column; gap: 0; overflow-y: auto;
 }
 
 /* ── Charts row ── */
@@ -199,6 +200,36 @@ body {
   color: var(--text2); text-transform: uppercase; letter-spacing: 0.4px;
   margin-bottom: 10px;
 }
+
+/* ── Modal planta ── */
+.planta-modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.8); z-index: 200;
+  align-items: center; justify-content: center;
+}
+.planta-modal-overlay.open { display: flex; }
+.planta-modal {
+  background: var(--bg2); border: 1px solid var(--border2);
+  border-radius: 14px; width: 900px; max-width: 96vw;
+  max-height: 92vh; overflow-y: auto; padding: 24px;
+  position: relative;
+}
+.planta-modal-close {
+  position: absolute; top: 14px; right: 14px;
+  background: var(--bg3); border: 1px solid var(--border2);
+  color: var(--text2); border-radius: 50%; width: 28px; height: 28px;
+  cursor: pointer; font-size: 1rem; display: flex; align-items: center; justify-content: center;
+}
+.planta-op-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap: 8px; margin-bottom: 16px;
+}
+.planta-op-item {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 12px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.planta-op-name { font-size: 0.72rem; font-weight: 600; color: var(--text); }
+.planta-op-rto { font-family: var(--font-head); font-size: 1.2rem; font-weight: 900; }
 
 /* ── Modal operador ── */
 .modal-overlay {
@@ -265,18 +296,71 @@ body {
   </div>
 </div>
 
-<!-- Upload bar -->
-<div class="upload-bar">
-  <label>Excel Eficiencias:</label>
-  <input type="file" id="xlsxUpload" accept=".xlsx,.xls">
-  <span class="file-count" id="fileCountLabel"></span>
-  <div class="sep"></div>
-  <span id="fbStatus">🔥 Firebase: conectando…</span>
+<!-- Upload bar toggle -->
+<div style="background:var(--bg2);border-bottom:1px solid var(--border);padding:6px 20px;display:flex;align-items:center;gap:12px">
+  <button class="btn" onclick="toggleUpload()" id="btnToggleUpload"
+    style="font-size:0.72rem;padding:4px 14px;display:flex;align-items:center;gap:6px">
+    <span id="uploadArrow">▶</span> Carga de datos
+  </button>
+  <span id="fbStatus" style="font-size:0.7rem;font-weight:700;color:var(--text2)">🔥 Firebase: conectando…</span>
+  <span class="file-count" id="fileCountLabel" style="margin-left:4px"></span>
+</div>
+
+<!-- Upload panel (hidden by default) -->
+<div id="uploadPanel" style="display:none;background:var(--bg2);border-bottom:2px solid var(--border2);padding:12px 20px">
+  <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
+
+    <!-- Carga normal -->
+    <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:10px;padding:14px 18px;min-width:280px">
+      <div style="font-size:0.75rem;font-weight:700;color:var(--green3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">
+        ➕ Carga acumulativa
+      </div>
+      <div style="font-size:0.68rem;color:var(--text3);margin-bottom:10px">
+        Agrega nuevos registros sin borrar los existentes. Los duplicados se ignoran automáticamente.
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <input type="file" id="xlsxUpload" accept=".xlsx,.xls"
+          style="font-size:0.72rem;color:var(--text2);background:var(--bg);border:1px solid var(--border2);border-radius:6px;padding:4px 8px;cursor:pointer">
+        <span id="uploadMsg" style="font-size:0.68rem;color:var(--green3);font-weight:600"></span>
+      </div>
+    </div>
+
+    <!-- Carga completa -->
+    <div style="background:#1a0808;border:1px solid #4a1a1a;border-radius:10px;padding:14px 18px;min-width:280px">
+      <div style="font-size:0.75rem;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">
+        🗑️ Carga completa (borra todo)
+      </div>
+      <div style="font-size:0.68rem;color:var(--text3);margin-bottom:10px">
+        Elimina <strong style="color:var(--red)">todos</strong> los datos existentes en Firebase y carga el archivo desde cero.
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <input type="file" id="xlsxUploadFull" accept=".xlsx,.xls"
+          style="font-size:0.72rem;color:#e07070;background:#1a0808;border:1px solid #4a1a1a;border-radius:6px;padding:4px 8px;cursor:pointer">
+        <span id="uploadMsgFull" style="font-size:0.68rem;color:var(--red);font-weight:600"></span>
+      </div>
+      <div id="confirmFullLoad" style="display:none;margin-top:10px;padding:8px 12px;background:#2a0a0a;border:1px solid var(--red);border-radius:8px">
+        <div style="font-size:0.72rem;color:var(--red);font-weight:600;margin-bottom:8px">
+          ⚠️ ¿Confirmas que deseas borrar todos los datos y cargar de nuevo?
+        </div>
+        <div style="display:flex;gap:8px">
+          <button onclick="confirmFullReload()" class="btn" style="background:#4a0a0a;border-color:var(--red);color:var(--red);padding:4px 14px">
+            Sí, borrar y cargar
+          </button>
+          <button onclick="cancelFullReload()" class="btn" style="padding:4px 14px">
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
 </div>
 
 <!-- Filters -->
 <div class="filters">
   <span class="filter-label">Filtros:</span>
+  <input type="text" id="searchOp" placeholder="🔍 Buscar operador…" oninput="applyFilters()"
+    style="font-family:var(--font-body);font-size:0.75rem;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:6px;padding:5px 10px;min-width:180px">
   <select id="filterUN" onchange="applyFilters()"><option value="">Todas las UN</option></select>
   <select id="filterPlanta" onchange="applyFilters()"><option value="">Todas las plantas</option></select>
   <select id="filterGerente" onchange="applyFilters()"><option value="">Todos los gerentes</option></select>
@@ -319,23 +403,19 @@ body {
   <!-- Right: charts -->
   <div class="panel-right">
     <div class="charts-row">
-      <div class="chart-box chart-box-tall" style="flex:2">
-        <div class="chart-title">📊 Plantas — operadores ineficientes</div>
+      <div class="chart-box" style="flex:1;height:260px">
+        <div class="chart-title">📊 RTO promedio por planta</div>
         <canvas id="chartPlantas"></canvas>
-      </div>
-      <div class="chart-box chart-box-tall" style="flex:1">
-        <div class="chart-title">🥧 Eficiencia global</div>
-        <canvas id="chartEf"></canvas>
       </div>
     </div>
     <div class="charts-row" style="border-bottom:none">
-      <div class="chart-box chart-box-tall" style="flex:1">
+      <div class="chart-box chart-box-tall" style="flex:2">
         <div class="chart-title">📈 RTO promedio por día</div>
         <canvas id="chartRtoDay"></canvas>
       </div>
       <div class="chart-box chart-box-tall" style="flex:1">
-        <div class="chart-title">📉 Tipo de vehículo</div>
-        <canvas id="chartVehiculo"></canvas>
+        <div class="chart-title">🥧 Eficiencia global</div>
+        <canvas id="chartEf"></canvas>
       </div>
     </div>
   </div>
@@ -360,6 +440,32 @@ body {
           <th>RTO Obtenido</th><th>RTO Ppto</th><th>DIF</th><th>Eficiencia</th>
         </tr></thead>
         <tbody id="detailBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Planta -->
+<div class="planta-modal-overlay" id="plantaModalOverlay" onclick="closePlantaModal(event)">
+  <div class="planta-modal" id="plantaModal">
+    <button class="planta-modal-close" onclick="closePlantaModalDirect()">✕</button>
+    <div class="modal-header">
+      <div class="modal-name" id="plantaModalName">—</div>
+      <div class="modal-meta" id="plantaModalMeta">—</div>
+    </div>
+    <div class="modal-kpis" id="plantaModalKpis"></div>
+    <div class="modal-section-lbl">📈 Tendencia RTO promedio diario de la planta</div>
+    <div class="modal-chart-box" style="margin-bottom:16px"><canvas id="plantaTrendChart"></canvas></div>
+    <div class="modal-section-lbl">👷 Rendimiento por operador</div>
+    <div class="planta-op-grid" id="plantaOpGrid"></div>
+    <div class="modal-section-lbl">📋 Detalle cargas</div>
+    <div style="overflow-x:auto">
+      <table class="detail-table" id="plantaDetailTable">
+        <thead><tr>
+          <th>Operador</th><th>Fecha</th><th>KM</th><th>LTS</th>
+          <th>RTO Obtenido</th><th>RTO Ppto</th><th>DIF</th><th>Eficiencia</th>
+        </tr></thead>
+        <tbody id="plantaDetailBody"></tbody>
       </table>
     </div>
   </div>
@@ -397,7 +503,7 @@ async function saveRendimientos(rows){
     for(let i = 0; i < rows.length; i += batchSize){
       const batch = writeBatch(db);
       rows.slice(i, i + batchSize).forEach(r => {
-        const id = `${r.nomina}_${r.fecha}_${r.planta}_${r.km}`.replace(/[^a-zA-Z0-9_-]/g,'_');
+        const id = `${r.nomina}_${r.fecha}_${r.planta}_${r._idx}`.replace(/[^a-zA-Z0-9_-]/g,'_');
         batch.set(doc(colRef, id), r);
       });
       await batch.commit();
@@ -427,20 +533,20 @@ async function clearFirestore(){
   setStatus('🗑️ Limpiando Firebase…', '#f39c12');
   try {
     const snap = await getDocs(collection(db, 'rendimientos'));
+    const refs = [];
+    snap.forEach(d => refs.push(d.ref));
     const batchSize = 400;
-    const docs = [];
-    snap.forEach(d => docs.push(d.ref));
-    for(let i = 0; i < docs.length; i += batchSize){
+    for(let i = 0; i < refs.length; i += batchSize){
       const batch = writeBatch(db);
-      docs.slice(i, i+batchSize).forEach(ref => batch.delete(ref));
+      refs.slice(i, i+batchSize).forEach(ref => batch.delete(ref));
       await batch.commit();
     }
     setStatus('✅ Firebase limpio', '#5de89a');
   } catch(e){ setStatus('⚠️ ' + e.message, '#e74c3c'); }
 }
 
-window.__saveToFirestore   = saveRendimientos;
-window.__clearFirestore    = clearFirestore;
+window.__clearFirestore  = clearFirestore;
+window.__saveToFirestore = saveRendimientos;
 loadRendimientos();
 </script>
 
@@ -449,29 +555,28 @@ loadRendimientos();
 let allData = [];
 let mode = 'peorRto';
 let modalChart = null;
+let plantaAvg = [];
+let plantaTrendChart = null;
 let chartPlantas = null;
 let chartEf = null;
 let chartRtoDay = null;
-let chartVehiculo = null;
 
 window.__setData = function(rows){
   // Merge avoiding duplicates by key
-  const existing = new Set(allData.map(r => `${r.nomina}_${r.fecha}_${r.planta}_${r.km}`));
-  const newRows = rows.filter(r => !existing.has(`${r.nomina}_${r.fecha}_${r.planta}_${r.km}`));
+  const existing = new Set(allData.map(r => `${r.nomina}_${r.fecha}_${r.planta}_${r._idx}`));
+  const newRows = rows.filter(r => !existing.has(`${r.nomina}_${r.fecha}_${r.planta}_${r._idx}`));
   allData = [...allData, ...newRows];
   populateFilters();
   applyFilters();
   document.getElementById('fileCountLabel').textContent = `${allData.length} registros`;
+      setMsg(`✅ ${newRows.length} nuevos registros cargados`);
 };
 
 // ── Parse Excel ──
-document.getElementById('xlsxUpload').addEventListener('change', function(e){
-  const file = e.target.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = ev => {
-    try {
-      const wb = XLSX.read(ev.target.result, { type: 'array', cellDates: true });
+function processExcel(arrayBuffer, statusCallback){
+  const setMsg = statusCallback || (msg => document.getElementById('uploadMsg').textContent = msg);
+  try {
+      const wb = XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
       // Find CARGAS sheet (may have trailing space)
       const sheetName = wb.SheetNames.find(s => s.trim().toUpperCase() === 'CARGAS') || wb.SheetNames[0];
       const ws = wb.Sheets[sheetName];
@@ -501,6 +606,10 @@ document.getElementById('xlsxUpload').addEventListener('change', function(e){
         return String(v).substring(0,10);
       };
 
+      // Build counter to distinguish multiple cargas same operator+day+plant
+      const counterMap = {};
+      const getCount = key => { counterMap[key] = (counterMap[key]||0)+1; return counterMap[key]; };
+
       const rows = raw.map(r => {
         const km  = parseFloat(g(r,'KM')) || 0;
         const lts = parseFloat(g(r,'LTS')) || 0;
@@ -513,13 +622,13 @@ document.getElementById('xlsxUpload').addEventListener('change', function(e){
         let ef = (g(r,'EFICIENTE O NO') || '').trim();
         if(!ef) ef = dif >= 0 ? 'Eficiente' : 'Ineficiente';
 
-        return {
+        const obj = {
           un:          String(g(r,'UN') || '').trim(),
           fecha:       excelDate(g(r,'FECHA')),
           id:          g(r,'ID') || '',
           planta:      String(g(r,'PLANTA') || '').trim(),
           nomina:      String(g(r,'NOMINA') || '').trim(),
-          operador:    String(g(r,'OPERADOR') || '').trim(),
+          operador:    (String(g(r,'OPERADOR') || '').trim() || 'SIN ASIGNACION'),
           gerente:     String(g(r,'GERENTE') || '').trim(),
           jefe:        String(g(r,'JEFE TRANSPORTACION') || '').trim(),
           km, lts,
@@ -531,22 +640,34 @@ document.getElementById('xlsxUpload').addEventListener('change', function(e){
           tipoVehiculo:String(g(r,'TIPO VEHICULO ') || g(r,'TIPO VEHICULO') || '').trim(),
           tipoCombustible: String(g(r,'TIPO COMBUSTIBLE') || '').trim(),
         };
-      }).filter(r => r.operador && r.operador !== 'SIN ASIGNACION' && r.km > 0 && r.lts > 0);
+        // Sequential index per nomina+fecha+planta to distinguish multiple cargas same day
+        const grpKey = `${obj.nomina}_${obj.fecha}_${obj.planta}`;
+        obj._idx = getCount(grpKey);
+        return obj;
+      }).filter(r => r.km > 0 && r.lts > 0);
 
       console.log('Parsed rows:', rows.length, 'sample:', rows[0]);
 
       // Deduplicate on load
-      const existing = new Set(allData.map(r=>`${r.nomina}_${r.fecha}_${r.planta}_${r.km}`));
-      const newRows = rows.filter(r => !existing.has(`${r.nomina}_${r.fecha}_${r.planta}_${r.km}`));
+      const existing = new Set(allData.map(r=>`${r.nomina}_${r.fecha}_${r.planta}_${r._idx}`));
+      const newRows = rows.filter(r => !existing.has(`${r.nomina}_${r.fecha}_${r.planta}_${r._idx}`));
       allData = [...allData, ...newRows];
       document.getElementById('fileCountLabel').textContent = `${allData.length} registros`;
       populateFilters();
       applyFilters();
       if(window.__saveToFirestore) window.__saveToFirestore(newRows);
-    } catch(err){
-      alert('Error leyendo el archivo: ' + err.message);
-    }
-  };
+  } catch(err){
+    setMsg('⚠️ Error: ' + err.message);
+    console.error(err);
+  }
+}
+
+document.getElementById('xlsxUpload').addEventListener('change', function(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => processExcel(ev.target.result,
+    msg => document.getElementById('uploadMsg').textContent = msg);
   reader.readAsArrayBuffer(file);
   this.value = '';
 });
@@ -566,7 +687,7 @@ function populateFilters(){
 }
 
 function clearFilters(){
-  ['filterUN','filterPlanta','filterGerente','filterEf','filterDateFrom','filterDateTo'].forEach(id=>{
+  ['filterUN','filterPlanta','filterGerente','filterEf','filterDateFrom','filterDateTo','searchOp'].forEach(id=>{
     document.getElementById(id).value='';
   });
   applyFilters();
@@ -579,13 +700,15 @@ function getFiltered(){
   const ef     = document.getElementById('filterEf').value;
   const from   = document.getElementById('filterDateFrom').value;
   const to     = document.getElementById('filterDateTo').value;
+  const search = (document.getElementById('searchOp') ? document.getElementById('searchOp').value : '').trim().toUpperCase();
   return allData.filter(r =>
     (!un     || r.un === un) &&
     (!planta || r.planta === planta) &&
     (!ger    || r.gerente === ger) &&
     (!ef     || r.eficiente === ef) &&
     (!from   || r.fecha >= from) &&
-    (!to     || r.fecha <= to)
+    (!to     || r.fecha <= to) &&
+    (!search || r.operador.toUpperCase().includes(search) || String(r.nomina).toUpperCase().includes(search))
   );
 }
 
@@ -690,32 +813,67 @@ function updateOpList(filtered){
 function destroyChart(c){ if(c) c.destroy(); return null; }
 
 function updateCharts(filtered){
-  // Chart 1: Plantas ineficientes
-  const plantaInef = {};
-  filtered.filter(r=>r.eficiente==='Ineficiente').forEach(r=>{
-    plantaInef[r.planta] = (plantaInef[r.planta]||0)+1;
+  // Chart 1: RTO promedio por planta — barras verticales
+  const plantaRto = {};
+  const plantaPpto = {};
+  filtered.forEach(r => {
+    if(!r.planta) return;
+    if(!plantaRto[r.planta]) { plantaRto[r.planta]=[]; plantaPpto[r.planta]=[]; }
+    plantaRto[r.planta].push(r.rtoObtenido);
+    plantaPpto[r.planta].push(r.rtoPpto);
   });
-  const plantaSorted = Object.entries(plantaInef).sort((a,b)=>b[1]-a[1]).slice(0,12);
+  plantaAvg = Object.entries(plantaRto).map(([p,v])=>({
+    planta: p,
+    rto: v.reduce((a,b)=>a+b,0)/v.length,
+    ppto: plantaPpto[p].reduce((a,b)=>a+b,0)/plantaPpto[p].length
+  })).sort((a,b)=>a.rto-b.rto);
 
   chartPlantas = destroyChart(chartPlantas);
   chartPlantas = new Chart(document.getElementById('chartPlantas'), {
-    type: 'bar',
-    data: {
-      labels: plantaSorted.map(([p])=>p),
-      datasets:[{ label:'Ineficientes', data: plantaSorted.map(([,v])=>v),
-        backgroundColor: 'rgba(231,76,60,0.7)', borderRadius:4 }]
+    type:'bar',
+    data:{
+      labels: plantaAvg.map(p=>p.planta),
+      datasets:[
+        { label:'RTO Obtenido',
+          data: plantaAvg.map(p=>p.rto),
+          backgroundColor: plantaAvg.map(p=>p.rto>=p.ppto?'rgba(46,204,113,0.75)':'rgba(231,76,60,0.75)'),
+          borderRadius:4, order:2 },
+        { type:'line', label:'RTO Ppto',
+          data: plantaAvg.map(p=>p.ppto),
+          borderColor:'#f39c12', borderDash:[5,3], borderWidth:2,
+          pointRadius:3, tension:0.3, order:1 }
+      ]
     },
     options:{
-      responsive:true, maintainAspectRatio:false, indexAxis:'y',
-      plugins:{ legend:{display:false}, tooltip:{ backgroundColor:'#0f2214', borderColor:'#1e4a28', borderWidth:1 } },
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      onClick:(evt, elements)=>{
+        if(elements.length > 0){
+          const idx = elements[0].index;
+          openPlantaModal(plantaAvg[idx].planta);
+        }
+      },
+      plugins:{
+        legend:{ labels:{color:'#a8c8b0',font:{size:11}} },
+        tooltip:{ backgroundColor:'#0f2214', borderColor:'#1e4a28', borderWidth:1,
+          callbacks:{
+            label:c=>c.dataset.label+': '+parseFloat(c.raw).toFixed(2)+' km/l',
+            title: t=>'🏭 '+t[0].label+' — clic para ver detalle'
+          }
+        }
+      },
       scales:{
-        x:{ ticks:{color:'#a8c8b0',font:{size:10}}, grid:{color:'rgba(46,204,113,0.08)'} },
-        y:{ ticks:{color:'#e8f5ec',font:{size:10}}, grid:{display:false} }
+        x:{ ticks:{color:'#e8f5ec',font:{size:10},maxRotation:50}, grid:{display:false},
+            cursor:'pointer' },
+        y:{ ticks:{color:'#a8c8b0',font:{size:10},callback:v=>v.toFixed(1)},
+            grid:{color:'rgba(46,204,113,0.08)'},
+            title:{display:true,text:'km/l',color:'#6a9a78',font:{size:10}} }
       }
     }
   });
+  document.getElementById('chartPlantas').style.cursor='pointer';
 
-  // Chart 2: Eficiencia donut
+    // Chart 2: Eficiencia donut
   const ef   = filtered.filter(r=>r.eficiente==='Eficiente').length;
   const inef = filtered.filter(r=>r.eficiente==='Ineficiente').length;
   chartEf = destroyChart(chartEf);
@@ -771,28 +929,7 @@ function updateCharts(filtered){
     }
   });
 
-  // Chart 4: Tipo vehículo
-  const vehCount = {};
-  filtered.forEach(r=>{ vehCount[r.tipoVehiculo||'Sin dato']=(vehCount[r.tipoVehiculo||'Sin dato']||0)+1; });
-  const vehSorted = Object.entries(vehCount).sort((a,b)=>b[1]-a[1]);
-  chartVehiculo = destroyChart(chartVehiculo);
-  chartVehiculo = new Chart(document.getElementById('chartVehiculo'), {
-    type:'bar',
-    data:{
-      labels: vehSorted.map(([v])=>v),
-      datasets:[{ label:'Cargas', data:vehSorted.map(([,c])=>c),
-        backgroundColor:['rgba(52,152,219,0.7)','rgba(46,204,113,0.7)','rgba(243,156,18,0.7)','rgba(231,76,60,0.7)'],
-        borderRadius:4 }]
-    },
-    options:{
-      responsive:true, maintainAspectRatio:false,
-      plugins:{legend:{display:false}, tooltip:{ backgroundColor:'#0f2214', borderColor:'#1e4a28', borderWidth:1 }},
-      scales:{
-        x:{ticks:{color:'#e8f5ec',font:{size:10}}, grid:{display:false}},
-        y:{ticks:{color:'#a8c8b0',font:{size:10}}, grid:{color:'rgba(46,204,113,0.08)'}}
-      }
-    }
-  });
+
 }
 
 // ── Modal ──
@@ -883,6 +1020,175 @@ function openModal(operadorName){
 
 function closeModal(e){ if(e.target===document.getElementById('modalOverlay')) closeModalDirect(); }
 function closeModalDirect(){ document.getElementById('modalOverlay').classList.remove('open'); }
+
+// ── Planta Modal ──────────────────────────────────────────────────────────────
+function openPlantaModal(plantaName){
+  const rows = getFiltered().filter(r => r.planta === plantaName).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  if(!rows.length) return;
+
+  document.getElementById('plantaModalName').textContent = '🏭 ' + plantaName;
+  const ops = [...new Set(rows.map(r=>r.operador))];
+  const inef = rows.filter(r=>r.eficiente==='Ineficiente').length;
+  const rtoAvg = rows.reduce((a,b)=>a+b.rtoObtenido,0)/rows.length;
+  const ppto  = rows.reduce((a,b)=>a+b.rtoPpto,0)/rows.length;
+  document.getElementById('plantaModalMeta').textContent =
+    `${ops.length} operadores · ${rows.length} cargas · Período: ${rows[0].fecha} → ${rows[rows.length-1].fecha}`;
+
+  const col = rtoColor(rtoAvg, ppto);
+  document.getElementById('plantaModalKpis').innerHTML = `
+    <div class="modal-kpi"><div class="modal-kpi-val" style="color:${col}">${rtoAvg.toFixed(2)}</div><div class="modal-kpi-lbl">RTO promedio km/l</div></div>
+    <div class="modal-kpi"><div class="modal-kpi-val" style="color:#f39c12">${ppto.toFixed(2)}</div><div class="modal-kpi-lbl">RTO presupuesto</div></div>
+    <div class="modal-kpi"><div class="modal-kpi-val">${ops.length}</div><div class="modal-kpi-lbl">Operadores</div></div>
+    <div class="modal-kpi"><div class="modal-kpi-val" style="color:#e74c3c">${inef}</div><div class="modal-kpi-lbl">Cargas ineficientes</div></div>
+    <div class="modal-kpi"><div class="modal-kpi-val" style="color:${((inef/rows.length)*100)>50?'#e74c3c':'#f39c12'}">${((inef/rows.length)*100).toFixed(1)}%</div><div class="modal-kpi-lbl">% Ineficiencia</div></div>
+  `;
+
+  // Trend chart: RTO promedio por día de la planta
+  if(plantaTrendChart){ plantaTrendChart.destroy(); plantaTrendChart=null; }
+  const byDay = {};
+  rows.forEach(r=>{
+    if(!byDay[r.fecha]) byDay[r.fecha]={rtos:[],pptos:[]};
+    byDay[r.fecha].rtos.push(r.rtoObtenido);
+    byDay[r.fecha].pptos.push(r.rtoPpto);
+  });
+  const days = Object.keys(byDay).sort();
+  plantaTrendChart = new Chart(document.getElementById('plantaTrendChart'), {
+    type:'bar',
+    data:{
+      labels: days,
+      datasets:[
+        { type:'bar', label:'RTO Obtenido',
+          data: days.map(d=>byDay[d].rtos.reduce((a,b)=>a+b,0)/byDay[d].rtos.length),
+          backgroundColor: days.map(d=>{
+            const avg=byDay[d].rtos.reduce((a,b)=>a+b,0)/byDay[d].rtos.length;
+            const pp=byDay[d].pptos.reduce((a,b)=>a+b,0)/byDay[d].pptos.length;
+            return avg>=pp?'rgba(46,204,113,0.7)':'rgba(231,76,60,0.7)';
+          }), borderRadius:4, order:2 },
+        { type:'line', label:'RTO Ppto',
+          data: days.map(d=>byDay[d].pptos.reduce((a,b)=>a+b,0)/byDay[d].pptos.length),
+          borderColor:'#f39c12', borderDash:[5,3], borderWidth:2,
+          pointRadius:0, tension:0.3, order:1 }
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{labels:{color:'#a8c8b0',font:{size:11}}},
+        tooltip:{backgroundColor:'#0f2214',borderColor:'#1e4a28',borderWidth:1,
+          callbacks:{label:c=>c.dataset.label+': '+c.raw.toFixed(2)+' km/l'}}
+      },
+      scales:{
+        x:{ticks:{color:'#e8f5ec',font:{size:10}},grid:{color:'rgba(46,204,113,0.08)'}},
+        y:{ticks:{color:'#a8c8b0',font:{size:10},callback:v=>v.toFixed(1)},
+           grid:{color:'rgba(46,204,113,0.08)'},
+           title:{display:true,text:'km/l',color:'#6a9a78',font:{size:10}}}
+      }
+    }
+  });
+
+  // Operadores grid — sorted by avg RTO
+  const opStats = {};
+  rows.forEach(r=>{
+    if(!opStats[r.operador]) opStats[r.operador]={rtos:[],pptos:[],inef:0,total:0};
+    opStats[r.operador].rtos.push(r.rtoObtenido);
+    opStats[r.operador].pptos.push(r.rtoPpto);
+    opStats[r.operador].total++;
+    if(r.eficiente==='Ineficiente') opStats[r.operador].inef++;
+  });
+  const opList = Object.entries(opStats).map(([name,s])=>({
+    name,
+    rto: s.rtos.reduce((a,b)=>a+b,0)/s.rtos.length,
+    ppto: s.pptos.reduce((a,b)=>a+b,0)/s.pptos.length,
+    inef: s.inef, total: s.total
+  })).sort((a,b)=>a.rto-b.rto);
+
+  document.getElementById('plantaOpGrid').innerHTML = opList.map(o=>{
+    const col = rtoColor(o.rto, o.ppto);
+    const pct = ((o.inef/o.total)*100).toFixed(0);
+    const bc  = pct>50?'badge-inef':pct>20?'badge-warn':'badge-ef';
+    return `<div class="planta-op-item" onclick="closePlantaModalDirect();openModal('${o.name.replace(/'/g,"\'")}');" style="cursor:pointer" title="Ver detalle de ${o.name}">
+      <div>
+        <div class="planta-op-name">${o.name}</div>
+        <div style="font-size:0.6rem;color:var(--text3);margin-top:2px">${o.total} cargas · <span class="op-badge ${bc}">${pct}% inef</span></div>
+      </div>
+      <div class="planta-op-rto" style="color:${col}">${o.rto.toFixed(2)}</div>
+    </div>`;
+  }).join('');
+
+  // Detail table
+  document.getElementById('plantaDetailBody').innerHTML = rows.slice(0,100).map(r=>`
+    <tr>
+      <td>${r.operador}</td>
+      <td>${r.fecha}</td>
+      <td>${r.km.toFixed(1)}</td>
+      <td>${r.lts.toFixed(1)}</td>
+      <td style="color:${rtoColor(r.rtoObtenido,r.rtoPpto)};font-weight:700">${r.rtoObtenido.toFixed(2)}</td>
+      <td style="color:#f39c12">${r.rtoPpto.toFixed(2)}</td>
+      <td style="color:${r.dif>=0?'#5de89a':'#e74c3c'}">${r.dif>=0?'+':''}${r.dif.toFixed(2)}</td>
+      <td><span class="op-badge ${r.eficiente==='Eficiente'?'badge-ef':'badge-inef'}">${r.eficiente}</span></td>
+    </tr>`).join('');
+
+  document.getElementById('plantaModalOverlay').classList.add('open');
+}
+
+function closePlantaModal(e){ if(e.target===document.getElementById('plantaModalOverlay')) closePlantaModalDirect(); }
+function closePlantaModalDirect(){
+  document.getElementById('plantaModalOverlay').classList.remove('open');
+  if(plantaTrendChart){ plantaTrendChart.destroy(); plantaTrendChart=null; }
+}
+
+// ── Upload panel toggle ──────────────────────────────────────────────────────
+function toggleUpload(){
+  const panel = document.getElementById('uploadPanel');
+  const arrow = document.getElementById('uploadArrow');
+  const open  = panel.style.display === 'none';
+  panel.style.display = open ? 'block' : 'none';
+  arrow.textContent   = open ? '▼' : '▶';
+}
+
+// ── Full reload ───────────────────────────────────────────────────────────────
+let _pendingFullFile = null;
+
+document.getElementById('xlsxUploadFull').addEventListener('change', function(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  _pendingFullFile = file;
+  document.getElementById('confirmFullLoad').style.display = 'block';
+  document.getElementById('uploadMsgFull').textContent = `📂 ${file.name} — confirma para continuar`;
+});
+
+function cancelFullReload(){
+  _pendingFullFile = null;
+  document.getElementById('confirmFullLoad').style.display = 'none';
+  document.getElementById('xlsxUploadFull').value = '';
+  document.getElementById('uploadMsgFull').textContent = '';
+}
+
+async function confirmFullReload(){
+  if(!_pendingFullFile) return;
+  document.getElementById('confirmFullLoad').style.display = 'none';
+  document.getElementById('uploadMsgFull').textContent = '🗑️ Borrando Firebase…';
+
+  // 1. Clear Firestore
+  if(window.__clearFirestore){
+    await window.__clearFirestore();
+  }
+
+  // 2. Clear memory
+  allData = [];
+  document.getElementById('fileCountLabel').textContent = '';
+
+  // 3. Load new file
+  document.getElementById('uploadMsgFull').textContent = '📥 Cargando nuevo archivo…';
+  const reader = new FileReader();
+  reader.onload = ev => {
+    processExcel(ev.target.result, msg => document.getElementById('uploadMsgFull').textContent = msg);
+    _pendingFullFile = null;
+    document.getElementById('xlsxUploadFull').value = '';
+  };
+  reader.readAsArrayBuffer(_pendingFullFile);
+}
 
 // Init empty state
 applyFilters();
